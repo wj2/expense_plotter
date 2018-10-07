@@ -166,7 +166,7 @@ def make_parser():
     parser.add_argument('-s', '--smooth_window', default=60, type=int)
     parser.add_argument('-m', '--main_plot', default='total', type=str)
     parser.add_argument('-p', '--plot_size', default=(10, 3), type=int, nargs=2)
-    parser.add_argument('-x', '--smooth', default=True, action='store_false',
+    parser.add_argument('-x', '--smooth', default=False, action='store_true',
                         help='whether to apply smoothing (default True)')
     parser.add_argument('-a', '--average', default=True, action='store_false',
                         help='whether to plot average amounts on the righthand '
