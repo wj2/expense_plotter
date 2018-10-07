@@ -1,6 +1,10 @@
 
 This code is written in python (3.x) and requires numpy, matplotlib and pandas.
 
+Example call: 
+python expense_plotter.py ../expense-reports/ costco hpp bulk \
+--names "Costco" "Hyde Park Produce" "Bulk" --budget 900 850 900 \
+--output_filetype .png 
 
 usage: expense_plotter.py [-h] [-o OUTPUT] [-t OUTPUT_FILETYPE]
                           [-y [YEARS [YEARS ...]]] [-n [NAMES [NAMES ...]]]
