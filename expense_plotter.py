@@ -156,16 +156,25 @@ def make_parser():
                         type=str, default='.pdf')
     parser.add_argument('-y', '--years', help='years to plot', nargs='*', type=str,
                         default=None)
-    parser.add_argument('-n', '--names', help='long names of everything plotting, '
+    parser.add_argument('-n', '--names', help='long names of everything to plot, '
                         'given in the same order', nargs='*', type=str,
                         default=None)
     parser.add_argument('-e', '--extension', help='data filetype extension',
                         type=str, default='.xlsx')
-    parser.add_argument('-c', '--column_title', default='Amount', type=str)
-    parser.add_argument('-b', '--binsize', default=30, type=int)
-    parser.add_argument('-s', '--smooth_window', default=60, type=int)
-    parser.add_argument('-m', '--main_plot', default='total', type=str)
-    parser.add_argument('-p', '--plot_size', default=(10, 3), type=int, nargs=2)
+    parser.add_argument('-c', '--column_title', default='Amount', type=str,
+                        help='the title of the column containing spending amounts')
+    parser.add_argument('-b', '--binsize', default=30, type=int,
+                        help='the size of the bins (in days) to use when plotting '
+                        '(default 30)')
+    parser.add_argument('-s', '--smooth_window', default=60, type=int,
+                        help='the width of the smoothing window to use, if '
+                        'smoothing is set to true (default 60)')
+    parser.add_argument('-m', '--main_plot', default='total', type=str,
+                        help='the string corresponding to the file names that will '
+                        'be plotted in a bigger plot in a top row')
+    parser.add_argument('-p', '--plot_size', default=(10, 3), type=int, nargs=2,
+                        help='the size (in inches, width height) of the plot to '
+                        'generate')
     parser.add_argument('-x', '--smooth', default=False, action='store_true',
                         help='whether to apply smoothing (default True)')
     parser.add_argument('-a', '--average', default=True, action='store_false',
