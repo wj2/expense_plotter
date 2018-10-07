@@ -5,6 +5,7 @@ import matplotlib.gridspec as gs
 import os
 import argparse
 import re
+import numpy as np
 
 def read_expense_report(path, header=4, skip_footer=7, clip_rows=3, clip_cols=1,
                         index_col=1):
@@ -18,7 +19,8 @@ def read_expense_report(path, header=4, skip_footer=7, clip_rows=3, clip_cols=1,
     r = r[clip_rows:]
     return r
 
-def get_smoothed_amounts(path, binsize=30, smooth_window=60, yax='Amount'):
+def get_smoothed_amounts(path, binsize=30, smooth_window=60, yax='Amount',
+                         smooth=True):
     """
     smooth_window : int
        The number of days to smooth over
@@ -27,12 +29,14 @@ def get_smoothed_amounts(path, binsize=30, smooth_window=60, yax='Amount'):
     window = pd.offsets.Day(smooth_window)
     binsize = pd.offsets.Day(binsize)
     data = r[yax].resample(binsize).sum()
-    sm = data.rolling(window, min_periods=1).mean()
-    return sm
+    if smooth:
+        data = data.rolling(window, min_periods=1).mean()
+    return data
 
 def plot_smoothed_amounts(paths, labels=None, binsize=30, smooth_window=60,
                           yax='Amount', ax=None, figsize=None, legend=True,
-                          title=None):
+                          title=None, smooth=True, budget=None,
+                          plot_average=True):
     if ax is None:
         f = plt.figure(figsize=figsize)
         ax = f.add_subplot(1,1,1)
@@ -41,11 +45,21 @@ def plot_smoothed_amounts(paths, labels=None, binsize=30, smooth_window=60,
             label = labels[i]
         else:
             label = ''
-        sm = get_smoothed_amounts(p, binsize=binsize,
+        sm = get_smoothed_amounts(p, binsize=binsize, smooth=smooth,
                                   smooth_window=smooth_window, yax=yax)
         inds = sm.index.asi8
         inds = inds - inds[0]
-        ax.plot(inds, sm.values, label=label)
+        l = ax.plot(inds, sm.values, label=label)
+        if plot_average:
+            sm_cent = sm.values.mean()
+            x_pt = inds[-1] + np.diff(inds)[0]
+            ax.plot(x_pt, sm_cent, 'o', color=l[0].get_color())
+    if budget is not None:
+        if plot_average:
+            x_end = x_pt
+        else:
+            x_end = inds[-1]
+        ax.hlines(budget, inds[0], x_end, color='k', linestyle='dashed')
     ax.set_xticks(inds)
     ax.set_xticklabels(sm.index.month)
     ax.set_ylabel('spending per {} days'.format(binsize))
@@ -69,8 +83,13 @@ def _clean_plot(ax, i, ticks=True, spines=True):
 
 def generate_spending_summary(spending_path_dict, title_dict=None, labels=None,
                               binsize=30, smooth_window=60, yax='Amount',
-                              main_plot='total', figsize=None):
+                              main_plot='total', figsize=None, smooth=True,
+                              average=True, budgets=None):
     f = plt.figure(figsize=figsize)
+    if budgets is None:
+        budgets = {}
+        for k in spending_path_dict.keys():
+            budgets[k] = None
     if main_plot in spending_path_dict.keys():
         other_plots = len(spending_path_dict.keys()) - 1
         spec = gs.GridSpec(2, other_plots)
@@ -80,7 +99,8 @@ def generate_spending_summary(spending_path_dict, title_dict=None, labels=None,
         ax = f.add_subplot(spec[0, :])
         plot_smoothed_amounts(spending_path_dict[main_plot], labels, binsize,
                               smooth_window, yax, ax=ax, legend=True,
-                              title=title_dict[main_plot])
+                              title=title_dict[main_plot], smooth=smooth,
+                              budget=budgets[main_plot], plot_average=average)
         _clean_plot(ax, 0)
     else:
         num_plots = len(spending_path_dict.keys())
@@ -99,16 +119,18 @@ def generate_spending_summary(spending_path_dict, title_dict=None, labels=None,
         paths = spending_path_dict[pk]
         title = title_dict[pk]
         plot_smoothed_amounts(paths, labels, binsize, smooth_window, yax, ax=ax,
-                              legend=legend_p, title=title)
+                              legend=legend_p, title=title, budget=budgets[pk],
+                              smooth=smooth, plot_average=average)
         if i > 0:
             ax.set_ylabel('')
         _clean_plot(ax, i)
     return f
 
-def construct_path_dict(folder, category_list, title_list, year_list, ext='.xlsx',
-                        file_template='{}_{}{}'):
+def construct_path_dict(folder, category_list, title_list, year_list, budgets,
+                        ext='.xlsx', file_template='{}_{}{}'):
     path_dict = {}
     title_dict = {}
+    budget_dict = {}
     year_list = sorted(year_list)
     for i, cat in enumerate(category_list):
         file_list = []
@@ -119,7 +141,8 @@ def construct_path_dict(folder, category_list, title_list, year_list, ext='.xlsx
             file_list.append(full_string)
         path_dict[cat] = file_list
         title_dict[cat] = title_list[i]
-    return path_dict, title_dict, year_list
+        budget_dict[cat] = budgets[i]
+    return path_dict, title_dict, year_list, budget_dict
 
 def make_parser():
     parser = argparse.ArgumentParser(description='script for plotting expense '
@@ -143,6 +166,15 @@ def make_parser():
     parser.add_argument('-s', '--smooth_window', default=60, type=int)
     parser.add_argument('-m', '--main_plot', default='total', type=str)
     parser.add_argument('-p', '--plot_size', default=(10, 3), type=int, nargs=2)
+    parser.add_argument('-x', '--smooth', default=True, action='store_false',
+                        help='whether to apply smoothing (default True)')
+    parser.add_argument('-a', '--average', default=True, action='store_false',
+                        help='whether to plot average amounts on the righthand '
+                        'side of the plot')
+    parser.add_argument('--budgets', type=float, default=None, nargs='*',
+                        help='the amounts budgeted for each category, listed '
+                        'in the same order as the categories -- or only one '
+                        'value if the budgets were all the same')
     return parser
 
 def _get_years(folder):
@@ -161,16 +193,23 @@ if __name__ == '__main__':
         args.years = _get_years(args.folder)
     if args.names is None:
         args.names = args.to_plot
+    if args.budgets is not None:
+        if len(args.budgets) == 1:
+            args.budgets = args.budgets*len(args.names)
+    else:
+        args.budgets = (None,)*len(args.names)
     assert len(args.names) == len(args.to_plot)
+    assert len(args.names) == len(args.budgets)
     out = construct_path_dict(args.folder, args.to_plot, args.names, args.years,
-                              ext=args.extension)
-    path_dict, title_dict, year_list = out
+                              args.budgets, ext=args.extension)
+    path_dict, title_dict, year_list, budget_dict = out
     outf = generate_spending_summary(path_dict, title_dict, year_list,
-                                     binsize=args.binsize,
+                                     binsize=args.binsize, 
                                      smooth_window=args.smooth_window,
-                                     yax=args.column_title,
+                                     yax=args.column_title, 
                                      main_plot=args.main_plot,
-                                     figsize=args.plot_size)
+                                     figsize=args.plot_size, smooth=args.smooth,
+                                     average=args.average, budgets=budget_dict)
     savename = args.output + args.output_filetype
     outf.savefig(savename, bbox_inches='tight',
                  transparent=True)
