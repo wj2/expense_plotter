@@ -1,3 +1,7 @@
+
+This code is written in python (3.x) and requires numpy, matplotlib and pandas.
+
+
 usage: expense_plotter.py [-h] [-o OUTPUT] [-t OUTPUT_FILETYPE]
                           [-y [YEARS [YEARS ...]]] [-n [NAMES [NAMES ...]]]
                           [-e EXTENSION] [-c COLUMN_TITLE] [-b BINSIZE]
