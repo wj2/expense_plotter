@@ -36,7 +36,7 @@ def get_smoothed_amounts(path, binsize=30, smooth_window=60, yax='Amount',
 def plot_smoothed_amounts(paths, labels=None, binsize=30, smooth_window=60,
                           yax='Amount', ax=None, figsize=None, legend=True,
                           title=None, smooth=True, budget=None,
-                          plot_average=True):
+                          plot_average=True, neg=False):
     if ax is None:
         f = plt.figure(figsize=figsize)
         ax = f.add_subplot(1,1,1)
@@ -47,11 +47,15 @@ def plot_smoothed_amounts(paths, labels=None, binsize=30, smooth_window=60,
             label = ''
         sm = get_smoothed_amounts(p, binsize=binsize, smooth=smooth,
                                   smooth_window=smooth_window, yax=yax)
+        if neg:
+            v_plot = -sm.values
+        else:
+            v_plot = sm.values
         inds = sm.index.asi8
         inds = inds - inds[0]
-        l = ax.plot(inds, sm.values, label=label)
+        l = ax.plot(inds, v_plot, label=label)
         if plot_average:
-            sm_cent = sm.values.mean()
+            sm_cent = v_plot.mean()
             x_pt = inds[-1] + np.diff(inds)[0]
             ax.plot(x_pt, sm_cent, 'o', color=l[0].get_color())
     if budget is not None:
@@ -84,7 +88,7 @@ def _clean_plot(ax, i, ticks=True, spines=True):
 def generate_spending_summary(spending_path_dict, title_dict=None, labels=None,
                               binsize=30, smooth_window=60, yax='Amount',
                               main_plot='total', figsize=None, smooth=True,
-                              average=True, budgets=None):
+                              average=True, budgets=None, neg=False):
     f = plt.figure(figsize=figsize)
     if budgets is None:
         budgets = {}
@@ -100,7 +104,8 @@ def generate_spending_summary(spending_path_dict, title_dict=None, labels=None,
         plot_smoothed_amounts(spending_path_dict[main_plot], labels, binsize,
                               smooth_window, yax, ax=ax, legend=True,
                               title=title_dict[main_plot], smooth=smooth,
-                              budget=budgets[main_plot], plot_average=average)
+                              budget=budgets[main_plot], plot_average=average,
+                              neg=neg)
         _clean_plot(ax, 0)
     else:
         num_plots = len(spending_path_dict.keys())
@@ -120,7 +125,7 @@ def generate_spending_summary(spending_path_dict, title_dict=None, labels=None,
         title = title_dict[pk]
         plot_smoothed_amounts(paths, labels, binsize, smooth_window, yax, ax=ax,
                               legend=legend_p, title=title, budget=budgets[pk],
-                              smooth=smooth, plot_average=average)
+                              smooth=smooth, plot_average=average, neg=neg)
         if i > 0:
             ax.set_ylabel('')
         _clean_plot(ax, i)
@@ -137,6 +142,7 @@ def construct_path_dict(folder, category_list, title_list, year_list, budgets,
         for year in year_list:
             file_string = file_template.format(cat, year, ext)
             full_string = os.path.join(folder, file_string)
+            print(full_string)
             assert os.path.isfile(full_string)
             file_list.append(full_string)
         path_dict[cat] = file_list
@@ -177,7 +183,7 @@ def make_parser():
                         help='the size (in inches, width height) of the plot to '
                         'generate')
     parser.add_argument('-x', '--smooth', default=False, action='store_true',
-                        help='whether to apply smoothing (default True)')
+                        help='whether to apply smoothing (default False)')
     parser.add_argument('-a', '--average', default=True, action='store_false',
                         help='whether to plot average amounts on the righthand '
                         'side of the plot')
@@ -185,6 +191,10 @@ def make_parser():
                         help='the amounts budgeted for each category, listed '
                         'in the same order as the categories -- or only one '
                         'value if the budgets were all the same')
+    parser.add_argument('--negative', default=False,
+                        action='store_true',
+                        help='multiply all values by -1; sometimes QB provides'
+                        'transaction lists with all negative values')
     return parser
 
 def _get_years(folder):
@@ -216,7 +226,7 @@ if __name__ == '__main__':
     outf = generate_spending_summary(path_dict, title_dict, year_list,
                                      binsize=args.binsize, 
                                      smooth_window=args.smooth_window,
-                                     yax=args.column_title, 
+                                     yax=args.column_title, neg=args.negative,
                                      main_plot=args.main_plot,
                                      figsize=args.plot_size, smooth=args.smooth,
                                      average=args.average, budgets=budget_dict)
